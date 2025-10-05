@@ -1,0 +1,12 @@
+{
+  "refmap": "kessentials.refmap.json",
+  "required": true,
+  "package": "net.kettlemc.kessentialsforge.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "PlayerListMixin",
+    "ServerStatusPacketListenerImplMixin"
+  ],
+  "client": [],
+  "server": []
+}

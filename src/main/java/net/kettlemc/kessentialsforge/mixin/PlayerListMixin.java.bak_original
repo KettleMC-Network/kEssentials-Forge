@@ -1,0 +1,60 @@
+package com.yourorg.kessentialsforge.mixin;
+
+import com.yourorg.kessentialsforge.KEssentialsForge;
+import net.minecraft.network.Connection;
+import net.minecraft.network.chat.ChatType;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.PlayerList;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Redirect;
+
+import java.util.UUID;
+
+@Mixin(PlayerList.class)
+public abstract class PlayerListMixin implements PlayerListBridge {
+    @Shadow(remap = false)
+    protected abstract void broadcastMessage(Component message, ChatType chatType, UUID sender);
+
+    @Override
+    public void broadcastSystemMessage(Component message, ChatType chatType, UUID sender) {
+        this.broadcastMessage(message, chatType, sender);
+    }
+
+    @Redirect(
+        method = "placeNewPlayer",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/server/players/PlayerList;broadcastSystemMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/ChatType;Ljava/util/UUID;)V"),
+        remap = false
+    )
+    private void kessentials$skipJoinBroadcast(PlayerListBridge instance, Component message, ChatType chatType, UUID sender, Connection connection, ServerPlayer player) {
+        if (this.kessentials$shouldSuppressVanillaBroadcast(player)) {
+            return;
+        }
+        instance.broadcastSystemMessage(message, chatType, sender);
+    }
+
+    @Redirect(
+        method = "remove",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/server/players/PlayerList;broadcastSystemMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/ChatType;Ljava/util/UUID;)V"),
+        remap = false
+    )
+    private void kessentials$skipQuitBroadcast(PlayerListBridge instance, Component message, ChatType chatType, UUID sender, ServerPlayer player) {
+        if (this.kessentials$shouldSuppressVanillaBroadcast(player)) {
+            return;
+        }
+        instance.broadcastSystemMessage(message, chatType, sender);
+    }
+
+    private boolean kessentials$shouldSuppressVanillaBroadcast(ServerPlayer player) {
+        var mod = KEssentialsForge.INSTANCE;
+        if (mod == null) {
+            return false;
+        }
+        if (mod.state.isVanished(player.getUUID())) {
+            return true;
+        }
+        return true;
+    }
+}

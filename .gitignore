@@ -1,0 +1,5 @@
+# Ignore Gradle wrapper binary JAR artifacts
+gradle/wrapper/gradle-wrapper.jar
+
+# Ignore generated distribution artifacts
+build/libs/kessentials-forge-*.jar

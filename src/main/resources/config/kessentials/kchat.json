@@ -1,0 +1,78 @@
+{
+  "motdEnabled": true,
+  "motdMiniMessage": "<b><color:#bababa>☽</color> <shadow:aqua:0.5><gradient:#0064b5:#1c46ff>KettleMC Network</gradient></shadow> <color:#b3ba2b>☀</color></b>\n           <b><color:#1a35bd>F</color><color:#2abd2c>T</color><color:#bd1e2e>B</color></b><white>:</white> <gradient:#82817f:#474746><b>Stoneblock 3</b></gradient> <color:#cc5f00>☄</color> <gradient:#eded34:#bd0003><b>Join Now</b>",
+  "headerFooter": {
+    "enabled": true,
+    "header": [
+      "&f&m                                                &r",
+      "&7☽ &9KettleMC Network &e☀",
+      "&r&7&l>> &6Welcome &l%player%&7&l! &7&l<<",
+      ""
+    ],
+    "footer": [
+      "",
+      "&7&lStoneBlock 3",
+      "&6PROTOTYP PROJECT",
+      "&f&m                                                &r"
+    ]
+  },
+  "scoreboard": {
+    "enabled": true,
+    "title": "&7&lStoneBlock 3",
+    "lines": [
+      "   &9KettleMC Network",
+      " %animation:MyAnimation1%",
+      "&4♥ &eOnline&7: %online%",
+      "",
+      "&6Personal Info:",
+      "&e☻ &bRank&7: %luckperms-prefix%",
+      "&c✏ &bPing&7: %ping%&8ms",
+      "&a⚑ &bWorld&7: %world_name_<world>%",
+      "&8☠ &bDeaths&7: %statistic_deaths%",
+      " %animation:MyAnimation1%"
+    ]
+  },
+  "chatFormat": "&r%luckperms-prefix% &8| &7%player% &8» &7%message%",
+  "nameDisplay": {
+    "enabled": true,
+    "format": "&r%luckperms-prefix% &7%player%",
+    "hideWhenVanished": true
+  },
+  "animations": {},
+  "animationsAdv": {
+    "MyAnimation1": {
+      "changeInterval": 100,
+      "texts": [
+        "&d-&3--------------",
+        "&3-&d-&3-------------",
+        "&3--&d-&3------------",
+        "&3---&d-&3-----------",
+        "&3----&d-&3----------",
+        "&3-----&d-&3---------",
+        "&3------&d-&3--------",
+        "&3-------&d-&3-------",
+        "&3--------&d-&3------",
+        "&3---------&d-&3-----",
+        "&3----------&d-&3----",
+        "&3-----------&d-&3---",
+        "&3------------&d-&3--",
+        "&3-------------&d-&3-",
+        "&3--------------&d-",
+        "&3-------------&d-&3-",
+        "&3------------&d-&3--",
+        "&3-----------&d-&3---",
+        "&3----------&d-&3----",
+        "&3---------&d-&3-----",
+        "&3--------&d-&3------",
+        "&3-------&d-&3-------",
+        "&3------&d-&3--------",
+        "&3-----&d-&3---------",
+        "&3----&d-&3----------",
+        "&3---&d-&3-----------",
+        "&3--&d-&3------------",
+        "&3-&d-&3-------------",
+        "&d-&3--------------"
+      ]
+    }
+  }
+}

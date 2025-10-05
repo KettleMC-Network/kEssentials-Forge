@@ -1,0 +1,49 @@
+package com.yourorg.kessentialsforge.mixin;
+
+import net.minecraft.network.chat.ChatType;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TranslatableComponent;
+import net.minecraft.server.players.PlayerList;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.UUID;
+
+/**
+ * Forge 1.18.2:
+ * Suppresses the vanilla join/leave system messages by cancelling the central broadcast call.
+ * We hook BOTH names used across versions: broadcastMessage(...) and broadcastSystemMessage(...).
+ */
+@Mixin(PlayerList.class)
+public abstract class PlayerListMixin {
+
+    private static boolean kessentials$isJoinLeave(Component message) {
+        if (message instanceof TranslatableComponent) {
+            String key = ((TranslatableComponent) message).getKey();
+            return "multiplayer.player.joined".equals(key)
+                    || "multiplayer.player.left".equals(key)
+                    || "multiplayer.player.joined.renamed".equals(key);
+        }
+        return false;
+    }
+
+    // Dev name variant A (some 1.18.2 setups):
+    @Inject(method = "broadcastMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/ChatType;Ljava/util/UUID;)V",
+            at = @At("HEAD"), cancellable = true, remap = false)
+    private void kessentials$hideJoinLeave_broadcastMessage(Component message, ChatType chatType, UUID sender, CallbackInfo ci) {
+        if (kessentials$isJoinLeave(message)) {
+            ci.cancel();
+        }
+    }
+
+    // Dev name variant B (seen in other 1.18.2 mappings):
+    @Inject(method = "broadcastSystemMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/ChatType;Ljava/util/UUID;)V",
+            at = @At("HEAD"), cancellable = true, remap = false)
+    private void kessentials$hideJoinLeave_broadcastSystemMessage(Component message, ChatType chatType, UUID sender, CallbackInfo ci) {
+        if (kessentials$isJoinLeave(message)) {
+            ci.cancel();
+        }
+    }
+}

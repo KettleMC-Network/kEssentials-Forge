@@ -1,0 +1,31 @@
+{
+  "defaultMaxHomes": 3,
+  "cooldownsSeconds": {
+    "home": 3,
+    "warp": 3,
+    "spawn": 3,
+    "rtp": 30
+  },
+  "warmupsSeconds": {
+    "home": 0,
+    "warp": 0,
+    "spawn": 0,
+    "rtp": 3
+  },
+  "rtpBiomeBlacklist": [
+    "OCEAN",
+    "RIVER",
+    "NETHER"
+  ],
+  "vanishFakeMessages": true,
+  "disabledCommands": {},
+  "onJoinActions": [],
+  "onCommandActions": {},
+  "restartTimes": [
+    "04:00",
+    "16:00"
+  ],
+  "permissionLayout": "system.%command%",
+  "permissionLayoutOther": "system.%command%.%other%",
+  "permissionHomeLayout": "system.%command%.limit.%limit%"
+}

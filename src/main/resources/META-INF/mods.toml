@@ -1,0 +1,24 @@
+
+modLoader="javafml"
+loaderVersion="[40,)"
+license="MIT"
+
+[[mods]]
+modId="kessentials"
+version="${file.jarVersion}"
+displayName="kEssentials (Forge)"
+authors="Your Team"
+description='''Essentials-like utilities for Forge servers. Includes homes, warps, tpa, moderation tools, robust vanish, invsee pro, utilities, locales, and a Discord bridge (JDA) with whitelist-linking.'''
+
+[[dependencies.kessentials]]
+modId="forge"
+mandatory=true
+versionRange="[40,)"
+
+[[dependencies.kessentials]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.18.2,1.19)"
+
+[[mixins]]
+config="kessentials.mixins.json"

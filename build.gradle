@@ -1,0 +1,158 @@
+buildscript {
+    repositories {
+        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
+    }
+}
+
+plugins {
+id 'net.minecraftforge.gradle' version '5.1.+'
+    id 'eclipse'
+    id 'maven-publish'
+    // Weg A: Shadow kompatibel mit Gradle 7.x
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
+}
+
+group = 'net.kettlemc.kessentialsforge'
+version = '1.0.0'
+archivesBaseName = 'kessentials-forge'
+
+configurations {
+    shade
+}
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(17) }
+    withSourcesJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    // Fixiere Bytecode auf Java 17
+    options.release = 17
+}
+
+minecraft {
+    mappings channel: 'official', version: '1.18.2'
+    runs {
+        client {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'debug'
+            args '--mixin.config=kessentials.mixins.json'
+            mods { modid { source sourceSets.main } }
+        }
+        server {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'debug'
+            args '--mixin.config=kessentials.mixins.json'
+            mods { modid { source sourceSets.main } }
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.minecraftforge.net' }
+    // JDA (zusätzlich zu Central nicht zwingend, aber schadet nicht)
+    maven { url = 'https://m2.dv8tion.net/releases' }
+    // LuckPerms ist auf Central verfügbar; zusätzliche Repo-Quelle optional:
+    maven { url = 'https://repo.lucko.me' }
+}
+
+dependencies {
+    // Forge Kern (ggf. anpassen)
+    minecraft 'net.minecraftforge:forge:1.18.2-40.2.0'
+
+    // --- NEU: fehlende Abhängigkeiten beheben ---
+    // JDA 5 (läuft auf Java >= 11, auf Central verfügbar)
+    implementation('net.dv8tion:JDA:5.3.2') {
+        exclude group: 'org.slf4j'
+    }
+    shade('net.dv8tion:JDA:5.3.2') {
+        exclude group: 'org.slf4j'
+        exclude group: 'com.google.code.gson', module: 'gson'
+        exclude group: 'net.java.dev.jna'
+        exclude group: 'net.java.dev.jna', module: 'jna'
+        exclude group: 'net.java.dev.jna', module: 'jna-platform'
+    }
+    implementation 'net.kyori:adventure-text-minimessage:4.14.0'
+    implementation 'net.kyori:adventure-text-serializer-gson:4.14.0'
+    shade 'net.kyori:adventure-text-minimessage:4.14.0'
+    shade 'net.kyori:adventure-text-serializer-gson:4.14.0'
+    // LuckPerms API – nur zum Kompilieren, wird zur Laufzeit vom Server/Mod bereitgestellt
+    compileOnly 'net.luckperms:api:5.4'
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+    // Beispiel-Logger (optional; Forge bringt Logging, daher auskommentiert)
+    // runtimeOnly 'ch.qos.logback:logback-classic:1.4.14'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+}
+
+// Ausgabedatei ohne zusätzlichen Klassifizierer
+def shadowJarTask = tasks.named('shadowJar')
+
+shadowJarTask.configure {
+    configurations = [project.configurations.shade]
+    archiveClassifier.set('')
+    // Remove Java module descriptors that conflict with relocation during shading
+    exclude 'module-info.class'
+    exclude 'META-INF/versions/**/module-info.class'
+    exclude 'META-INF/versions/**'
+    // Bei Bedarf problematische Dependencies ausschließen (Beispiel):
+    dependencies {
+        exclude(dependency('org.ow2.asm:asm'))
+        exclude(dependency('org.ow2.asm:asm-commons'))
+        exclude(dependency('org.ow2.asm:asm-tree'))
+        exclude(dependency('org.ow2.asm:asm-analysis'))
+        exclude(dependency('org.ow2.asm:asm-util'))
+        exclude(dependency('com.google.code.gson:gson'))
+    }
+}
+
+// Reobf für Shadow (ForgeGradle)
+reobf { shadowJar { } }
+
+def reobfShadowJarTask = tasks.named('reobfShadowJar')
+
+shadowJarTask.configure {
+    finalizedBy(reobfShadowJarTask)
+}
+
+reobfShadowJarTask.configure {
+    dependsOn(shadowJarTask)
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifact(shadowJarTask) {
+                builtBy(reobfShadowJarTask)
+            }
+            artifact(tasks.named('sourcesJar'))
+        }
+    }
+}
+
+tasks.named('test').configure {
+    useJUnitPlatform()
+}
+
+apply plugin: 'org.spongepowered.mixin'
+
+
+mixin {
+    add sourceSets.main, "kessentials.refmap.json"
+}
+
+
+tasks.named('jar', Jar).configure {
+    manifest {
+        attributes(
+            'MixinConfigs': 'kessentials.mixins.json'
+        )
+    }
+}
