@@ -8,6 +8,8 @@ import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.LuckPermsProvider;
 import net.luckperms.api.cacheddata.CachedMetaData;
+import net.luckperms.api.model.group.Group;
+import net.luckperms.api.model.user.User;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -41,6 +43,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -192,6 +196,8 @@ public class KChatService {
     }
 
     // ===== Legacy color & simple placeholder handling =====
+    private static final int MAX_WEIGHT = 99999;
+    private static final Pattern GROUP_ID_SAFE = Pattern.compile("[^a-z0-9]+");
     private static final Pattern LEGACY = Pattern.compile("&([0-9a-fk-or])", Pattern.CASE_INSENSITIVE);
     private static final Pattern LP_META = Pattern.compile("%lp-meta:([a-z0-9_:-]+)%", Pattern.CASE_INSENSITIVE);
     private static final Pattern ANIMATION = Pattern.compile("%animation:([a-z0-9_:-]+)%", Pattern.CASE_INSENSITIVE);
@@ -305,21 +311,40 @@ public class KChatService {
         Matcher matcher = STATISTIC.matcher(input);
         StringBuffer sb = new StringBuffer();
         while (matcher.find()) {
-            String id = matcher.group(1).toLowerCase(Locale.ROOT);
-            String replacement = "0";
-            try {
-                ResourceLocation rl = ResourceLocation.tryParse(id);
-                if (rl != null) {
-                    Stat<ResourceLocation> stat = Stats.CUSTOM.get(rl);
-                    if (stat != null) {
-                        replacement = Integer.toString(p.getStats().getValue(stat));
-                    }
-                }
-            } catch (Throwable ignored) {}
+            String id = matcher.group(1);
+            String replacement = resolveStatisticPlaceholder(p, id);
             matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
         }
         matcher.appendTail(sb);
         return sb.toString();
+    }
+
+    private String resolveStatisticPlaceholder(ServerPlayer player, String placeholderId) {
+        if (placeholderId == null) {
+            return "0";
+        }
+        String id = placeholderId.toLowerCase(Locale.ROOT);
+
+        if ("deaths".equals(id) || "minecraft:deaths".equals(id)) {
+            try {
+                Stat<ResourceLocation> stat = Stats.CUSTOM.get(Stats.DEATHS);
+                if (stat != null) {
+                    return Integer.toString(player.getStats().getValue(stat));
+                }
+            } catch (Throwable ignored) {}
+        }
+
+        try {
+            ResourceLocation rl = ResourceLocation.tryParse(id);
+            if (rl != null) {
+                Stat<ResourceLocation> stat = Stats.CUSTOM.get(rl);
+                if (stat != null) {
+                    return Integer.toString(player.getStats().getValue(stat));
+                }
+            }
+        } catch (Throwable ignored) {}
+
+        return "0";
     }
 
     private String applyAnimations(String input) {
@@ -539,9 +564,31 @@ public class KChatService {
 
         MinecraftServer server = player.getServer();
         UUID uuid = player.getUUID();
-        NameState state = nameCache.computeIfAbsent(uuid, NameState::new);
-        state.team.getPlayers().clear();
-        state.team.getPlayers().add(player.getScoreboardName());
+        NameState state = nameCache.computeIfAbsent(uuid, u -> new NameState());
+
+        GroupInfo groupInfo = resolveGroupInfo(uuid);
+        String desiredTeamName = buildNameDisplayTeamName(uuid, groupInfo);
+        PlayerTeam previousTeam = state.team;
+        if (state.team == null || !desiredTeamName.equals(state.teamName)) {
+            if (previousTeam != null && state.added) {
+                sendTeamRemoval(server, previousTeam);
+            }
+            state.rebuildTeam(desiredTeamName);
+            state.added = false;
+            state.lastPrefix = "";
+            state.lastSuffix = "";
+            force = true;
+        }
+
+        PlayerTeam team = state.team;
+        if (team == null) {
+            return;
+        }
+
+        String scoreboardName = player.getScoreboardName();
+        if (!team.getPlayers().contains(scoreboardName)) {
+            state.scoreboard.addPlayerToTeam(scoreboardName, team);
+        }
 
         String format = cfg.nameDisplay.format != null ? cfg.nameDisplay.format : "&r%luckperms-prefix% &7%player%";
         int idx = format.indexOf("%player%");
@@ -591,10 +638,10 @@ public class KChatService {
         }
 
         if (!state.added) {
-            sendTeamPacket(server, state.team, true);
+            sendTeamPacket(server, team, true);
             state.added = true;
         } else if (changed) {
-            sendTeamPacket(server, state.team, false);
+            sendTeamPacket(server, team, false);
         }
     }
 
@@ -605,20 +652,20 @@ public class KChatService {
         for (Map.Entry<UUID, NameState> entry : nameCache.entrySet()) {
             if (entry.getKey().equals(self)) continue;
             NameState state = entry.getValue();
-            if (!state.added) continue;
+            if (!state.added || state.team == null) continue;
             target.connection.send(ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(state.team, true));
         }
     }
 
     private void sendTeamPacket(MinecraftServer server, PlayerTeam team, boolean add) {
-        if (server == null) return;
+        if (server == null || team == null) return;
         for (ServerPlayer viewer : server.getPlayerList().getPlayers()) {
             viewer.connection.send(ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(team, add));
         }
     }
 
     private void sendTeamRemoval(MinecraftServer server, PlayerTeam team) {
-        if (server == null) return;
+        if (server == null || team == null) return;
         for (ServerPlayer viewer : server.getPlayerList().getPlayers()) {
             viewer.connection.send(ClientboundSetPlayerTeamPacket.createRemovePacket(team));
         }
@@ -629,7 +676,7 @@ public class KChatService {
         NameState state = nameCache.remove(player.getUUID());
         if (state == null) return;
         MinecraftServer server = player.getServer();
-        if (state.added) {
+        if (state.added && state.team != null) {
             sendTeamRemoval(server, state.team);
         }
     }
@@ -642,6 +689,98 @@ public class KChatService {
         if (server == null) return;
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             updateNameDisplay(player, force);
+        }
+    }
+
+    private GroupInfo resolveGroupInfo(UUID uuid) {
+        try {
+            LuckPerms lp = LuckPermsProvider.get();
+            User user = lp.getUserManager().getUser(uuid);
+            if (user == null) {
+                user = lp.getUserManager().loadUser(uuid).join();
+            }
+            if (user == null) {
+                return new GroupInfo(Optional.empty(), Optional.empty());
+            }
+
+            String primary = user.getPrimaryGroup();
+            Group group = primary != null ? lp.getGroupManager().getGroup(primary) : null;
+
+            Optional<Integer> weight = Optional.empty();
+            if (group != null) {
+                OptionalInt w = group.getWeight();
+                if (w.isPresent()) {
+                    weight = Optional.of(w.getAsInt());
+                }
+            }
+
+            return new GroupInfo(Optional.ofNullable(primary), weight);
+        } catch (Throwable ignored) {
+            return new GroupInfo(Optional.empty(), Optional.empty());
+        }
+    }
+
+    private String buildNameDisplayTeamName(UUID uuid, GroupInfo info) {
+        int weight = info.weight.orElse(0);
+        int clamped = Math.max(0, Math.min(MAX_WEIGHT, weight));
+        int inv = MAX_WEIGHT - clamped;
+        String letters = toLetters(inv);
+
+        String groupId = info.groupName.orElse("default");
+        String sanitized = sanitizeGroupId(groupId);
+        String groupPrefix = padRight(sanitized, 2, 'x').substring(0, 2);
+        String unique = uniqueSuffix(uuid);
+
+        return "g" + letters + "_" + groupPrefix + unique;
+    }
+
+    private static String sanitizeGroupId(String s) {
+        String x = s == null ? "group" : s.toLowerCase(Locale.ROOT);
+        x = GROUP_ID_SAFE.matcher(x).replaceAll("");
+        if (x.isEmpty()) {
+            x = "group";
+        }
+        return x;
+    }
+
+    private static String toLetters(int value) {
+        int max = (int) Math.pow(26, 5) - 1;
+        int v = Math.max(0, Math.min(max, value));
+        char[] arr = new char[5];
+        for (int i = 4; i >= 0; i--) {
+            int rem = v % 26;
+            arr[i] = (char) ('A' + rem);
+            v /= 26;
+        }
+        return new String(arr);
+    }
+
+    private static String padRight(String value, int length, char fill) {
+        StringBuilder sb = new StringBuilder(value == null ? "" : value);
+        while (sb.length() < length) {
+            sb.append(fill);
+        }
+        if (sb.length() > length) {
+            return sb.substring(0, length);
+        }
+        return sb.toString();
+    }
+
+    private static String uniqueSuffix(UUID uuid) {
+        String hex = uuid.toString().replace("-", "");
+        if (hex.length() < 6) {
+            return padRight(hex, 6, '0');
+        }
+        return hex.substring(0, 6);
+    }
+
+    private static class GroupInfo {
+        final Optional<String> groupName;
+        final Optional<Integer> weight;
+
+        GroupInfo(Optional<String> groupName, Optional<Integer> weight) {
+            this.groupName = groupName;
+            this.weight = weight;
         }
     }
 
@@ -733,21 +872,22 @@ public class KChatService {
 
     private static class NameState {
         final Scoreboard scoreboard = new Scoreboard();
-        final PlayerTeam team;
-        final String teamName;
+        PlayerTeam team;
+        String teamName = "";
         String lastPrefix = "";
         String lastSuffix = "";
         PlayerTeam.Visibility lastVisibility = PlayerTeam.Visibility.ALWAYS;
         boolean lastSeeFriendlyInvisibles = true;
         boolean added = false;
 
-        NameState(UUID uuid) {
-            String base = uuid.toString().replace("-", "");
-            String suffix = base.length() > 12 ? base.substring(0, 12) : base;
-            this.teamName = "kes_" + suffix;
-            this.team = scoreboard.addPlayerTeam(teamName);
-            this.team.setNameTagVisibility(PlayerTeam.Visibility.ALWAYS);
-            this.team.setSeeFriendlyInvisibles(true);
+        void rebuildTeam(String newName) {
+            if (team != null) {
+                scoreboard.removePlayerTeam(team);
+            }
+            teamName = newName;
+            team = scoreboard.addPlayerTeam(newName);
+            team.setNameTagVisibility(lastVisibility);
+            team.setSeeFriendlyInvisibles(lastSeeFriendlyInvisibles);
         }
     }
 

@@ -32,9 +32,6 @@ public class KEssentialsForge {
     private DiscordBot discord;
 
     public KEssentialsForge() {
-        System.out.print("================================");
-        System.out.print("kEssentials Forge wird gestartet");
-        System.out.print("================================");
         INSTANCE = this;
         this.configDir = Path.of("config", "kessentials");
         try { Files.createDirectories(configDir); } catch (Exception ignored) {}

@@ -31,7 +31,7 @@ public class ChatEvents {
         }
         if (discord != null && !e.isCanceled()) {
             var component = KEssentialsForge.INSTANCE.kchat.formatChat(player, e.getMessage());
-            discord.relayChatMessage(player, component, "💬 "+ e.getMessage());
+            discord.relayChatMessage(player, component, e.getMessage());
         }
     }
 

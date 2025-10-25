@@ -3,3 +3,6 @@ gradle/wrapper/gradle-wrapper.jar
 
 # Ignore generated distribution artifacts
 build/libs/kessentials-forge-*.jar
+/build
+/.idea
+/.gradle

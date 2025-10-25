@@ -3,8 +3,12 @@ package net.kettlemc.kessentialsforge.service;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.network.chat.TextComponent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -205,18 +209,42 @@ public class ConfigService {
         if (nextRestart == null) return;
         ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
         if (!now.isBefore(nextRestart)) {
-            broadcast(server, new TextComponent("Server restarting now."));
+            broadcast(server, Component.literal("Server restarting now."));
             server.halt(false);
             return;
         }
         long secondsRemaining = Duration.between(now, nextRestart).getSeconds();
         if (RESTART_ANNOUNCE_SECONDS.contains(secondsRemaining) && secondsRemaining != lastBroadcastSeconds) {
             lastBroadcastSeconds = secondsRemaining;
-            broadcast(server, new TextComponent("Server restart in " + secondsRemaining + "s."));
+            sendRestartWarning(server, secondsRemaining);
         }
     }
 
-    private void broadcast(MinecraftServer server, TextComponent component) {
+    private void sendRestartWarning(MinecraftServer server, long secondsRemaining) {
+        String formatted = formatRestartCountdown(secondsRemaining);
+        Component title = Component.literal("Automatischer Neustart").withStyle(ChatFormatting.DARK_RED);
+        Component subtitle = Component.literal("In " + formatted + " startet der Server neu.").withStyle(ChatFormatting.RED);
+        broadcast(server, Component.literal("Automatischer Neustart in " + formatted + ".").withStyle(ChatFormatting.RED));
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            player.connection.send(new ClientboundSetTitlesAnimationPacket(10, 40, 10));
+            player.connection.send(new ClientboundSetSubtitleTextPacket(subtitle.copy()));
+            player.connection.send(new ClientboundSetTitleTextPacket(title.copy()));
+        }
+    }
+
+    private String formatRestartCountdown(long secondsRemaining) {
+        if (secondsRemaining >= 3600 && secondsRemaining % 3600 == 0) {
+            long hours = secondsRemaining / 3600;
+            return hours + " " + (hours == 1 ? "Stunde" : "Stunden");
+        }
+        if (secondsRemaining >= 60 && secondsRemaining % 60 == 0) {
+            long minutes = secondsRemaining / 60;
+            return minutes + " " + (minutes == 1 ? "Minute" : "Minuten");
+        }
+        return secondsRemaining + " " + (secondsRemaining == 1 ? "Sekunde" : "Sekunden");
+    }
+
+    private void broadcast(MinecraftServer server, Component component) {
         server.getPlayerList().getPlayers().forEach(p -> p.sendMessage(component, net.minecraft.Util.NIL_UUID));
         System.out.println("[kEssentials] " + component.getString());
     }

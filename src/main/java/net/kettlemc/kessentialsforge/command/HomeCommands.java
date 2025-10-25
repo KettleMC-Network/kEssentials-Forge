@@ -46,7 +46,10 @@ public class HomeCommands {
             .then(argument("name", StringArgumentType.word()).suggests(HOME_SUGGEST).executes(ctx -> goHome(ctx, StringArgumentType.getString(ctx,"name"))))
             .executes(ctx -> goHome(ctx, "home"));
         var homeNode = d.register(home);
-        CommandBuilders.registerAliases(d, homeNode, "zuhause", "homes");
+        CommandBuilders.registerAliases(d, homeNode, "zuhause");
+
+        var homesList = d.register(CommandBuilders.literal("homes").executes(HomeCommands::listHomes));
+        CommandBuilders.registerAliases(d, homesList, "listhomes", "homelist", "zuhaeuser");
 
         var delhome = d.register(CommandBuilders.literal("delhome").then(argument("name", StringArgumentType.word()).suggests(HOME_SUGGEST).executes(ctx -> {
             if (!net.kettlemc.kessentialsforge.perm.Perms.has(ctx.getSource(), "home", 2)) return 0;
