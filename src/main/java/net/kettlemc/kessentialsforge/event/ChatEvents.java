@@ -42,7 +42,7 @@ public class ChatEvents {
         if (discord != null && entity instanceof ServerPlayer player) {
             boolean vanished = KEssentialsForge.INSTANCE.state.isVanished(player.getUUID());
             if (!vanished) {
-                discord.relayPlayerJoin(player, Messages.get(player, "join_message", player.getGameProfile().getName()));
+                discord.relayPlayerJoin(player, Messages.get(player, "discord_join", player.getGameProfile().getName()));
             }
             String channelName = discord.getFriendlyChannelName();
             if (channelName == null || channelName.isBlank()) {
@@ -58,7 +58,7 @@ public class ChatEvents {
         KEssentialsForge.INSTANCE.state.setSeen(entity.getUUID(), System.currentTimeMillis());
         if (discord != null && entity instanceof ServerPlayer player) {
             if (!KEssentialsForge.INSTANCE.state.isVanished(player.getUUID())) {
-                discord.relayPlayerQuit(player, Messages.get(player, "leave_message", player.getGameProfile().getName()));
+                discord.relayPlayerJoin(player, Messages.get(player, "discord_leave", player.getGameProfile().getName()));
             }
         }
     }
