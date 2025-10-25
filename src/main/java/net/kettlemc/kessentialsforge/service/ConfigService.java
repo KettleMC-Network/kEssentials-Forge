@@ -9,6 +9,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
+import net.minecraft.network.chat.TextComponent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -209,7 +210,7 @@ public class ConfigService {
         if (nextRestart == null) return;
         ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
         if (!now.isBefore(nextRestart)) {
-            broadcast(server, Component.literal("Server restarting now."));
+            broadcast(server, new TextComponent("Server restarting now."));
             server.halt(false);
             return;
         }
@@ -222,9 +223,9 @@ public class ConfigService {
 
     private void sendRestartWarning(MinecraftServer server, long secondsRemaining) {
         String formatted = formatRestartCountdown(secondsRemaining);
-        Component title = Component.literal("Automatischer Neustart").withStyle(ChatFormatting.DARK_RED);
-        Component subtitle = Component.literal("In " + formatted + " startet der Server neu.").withStyle(ChatFormatting.RED);
-        broadcast(server, Component.literal("Automatischer Neustart in " + formatted + ".").withStyle(ChatFormatting.RED));
+        Component title = new TextComponent("Automatischer Neustart").withStyle(ChatFormatting.DARK_RED);
+        Component subtitle = new TextComponent("In " + formatted + " startet der Server neu.").withStyle(ChatFormatting.RED);
+        broadcast(server, new TextComponent("Automatischer Neustart in " + formatted + ".").withStyle(ChatFormatting.RED));
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             player.connection.send(new ClientboundSetTitlesAnimationPacket(10, 40, 10));
             player.connection.send(new ClientboundSetSubtitleTextPacket(subtitle.copy()));
